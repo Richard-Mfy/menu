@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的菜谱点餐系统</title>
+  
+  <!-- Tailwind CSS CDN（v3） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  
+  <!-- Alpine.js（轻量响应式） -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-orange-50 to-red-50" x-data="menuSystem()" x-init="init()">
+
+  <!-- 头部 -->
+  <header class="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 shadow-lg">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i data-lucide="utensils-crossed" class="w-8 h-8"></i>
+        <h1 class="text-3xl font-bold">我的菜谱点餐系统</h1>
+      </div>
+      <div class="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
+        <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+        <span class="font-bold text-lg" x-text="cart.length"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 导航栏 -->
+  <nav class="bg-white shadow-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto flex">
+      <button @click="activeTab='menu'"   :class="activeTab==='menu'   ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'"
+              class="flex-1 py-4 font-semibold transition-all">菜单</button>
+      <button @click="activeTab='cart'"   :class="activeTab==='cart'   ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'"
+              class="flex-1 py-4 font-semibold transition-all">购物车 (<span x-text="cart.length"></span>)</button>
+      <button @click="activeTab='orders'" :class="activeTab==='orders' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'"
+              class="flex-1 py-4 font-semibold transition-all">订单</button>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto p-6">
+
+    <!-- 菜单页 -->
+    <template x-if="activeTab === 'menu'">
+      <div>
+        <div class="mb-6">
+          <button @click="showAddForm=true; editingDish=null; form=emptyDish()"
+                  class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md inline-flex items-center">
+            <i data-lucide="plus" class="w-5 h-5 mr-2"></i> 添加新菜品
+          </button>
+        </div>
+
+        <template x-for="category in categories" :key="category">
+          <div class="mb-12">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-orange-500 inline-block">
+              <span x-text="category"></span>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <template x-for="item in menuItems.filter(i => i.category === category)" :key="item.id">
+                <div class="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 border-2 border-transparent hover:border-orange-300">
+                  <div class="flex items-start gap-4">
+                    <div class="text-6xl" x-text="item.image"></div>
+                    <div class="flex-1">
+                      <h3 class="font-bold text-xl text-gray-800" x-text="item.name"></h3>
+                      <p class="text-orange-600 font-bold text-2xl my-2">¥<span x-text="item.price"></span></p>
+                      <div class="flex flex-wrap gap-3 text-sm">
+                        <button @click="viewRecipe(item)" class="text-blue-600 hover:text-blue-800 flex items-center">
+                          <i data-lucide="eye" class="w-4 h-4 mr-1"></i>查看做法
+                        </button>
+                        <button @click="editDish(item)" class="text-green-600 hover:text-green-800 flex items-center">
+                          <i data-lucide="edit" class="w-4 h-4 mr-1"></i>编辑
+                        </button>
+                        <button @click="deleteDish(item.id)" class="text-red-600 hover:text-red-800 flex items-center">
+                          <i data-lucide="trash-2" class="w-4 h-4 mr-1"></i>删除
+                        </button>
+                      </div>
+                    </div>
+                    <button @click="addToCart(item)" class="bg-orange-500 hover:bg-orange-600 text-white rounded-full p-3">
+                      <i data-lucide="plus" class="w-6 h-6"></i>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- 购物车页 -->
+    <template x-if="activeTab === 'cart'">
+      <div class="space-y-6">
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <label class="block mb-2 font-semibold text-gray-700">桌号/备注</label>
+          <input type="text" x-model="tableNumber"
+                 placeholder="例如：2号桌 或 晚餐"
+                 class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none">
+        </div>
+
+        <template x-if="cart.length === 0">
+          <div class="bg-white rounded-xl shadow-md p-16 text-center">
+            <i data-lucide="shopping-cart" class="w-20 h-20 mx-auto text-gray-300 mb-4"></i>
+            <p class="text-gray-500 text-lg">购物车空空如也</p>
+          </div>
+        </template>
+
+        <template x-if="cart.length > 0">
+          <div>
+            <template x-for="item in cart" :key="item.id">
+              <div class="bg-white rounded-xl shadow-md p-5 flex items-center gap-4 mb-4">
+                <div class="text-5xl" x-text="item.image"></div>
+                <div class="flex-1">
+                  <h3 class="font-bold text-lg" x-text="item.name"></h3>
+                  <p class="text-orange-600 font-bold">¥<span x-text="item.price"></span></p>
+                  <button @click="viewRecipe(item)" class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>查看做法
+                  </button>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button @click="changeQty(item.id, -1)" class="bg-gray-200 hover:bg-gray-300 rounded-full p-2">
+                    <i data-lucide="minus" class="w-5 h-5"></i>
+                  </button>
+                  <span class="font-bold text-lg w-10 text-center" x-text="item.quantity"></span>
+                  <button @click="changeQty(item.id, 1)" class="bg-orange-500 hover:bg-orange-600 text-white rounded-full p-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                  </button>
+                  <button @click="removeFromCart(item.id)" class="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 ml-2">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <div class="bg-white rounded-xl shadow-md p-6">
+              <div class="flex justify-between items-center mb-4">
+                <span class="text-xl font-bold">总计：</span>
+                <span class="text-3xl font-bold text-orange-600">¥<span x-text="totalPrice"></span></span>
+              </div>
+              <button @click="submitOrder()" 
+                      class="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-4 rounded-xl text-lg">
+                提交订单
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- 订单页 -->
+    <template x-if="activeTab === 'orders'">
+      <div class="space-y-6">
+        <template x-if="orders.length === 0">
+          <div class="bg-white rounded-xl shadow-md p-16 text-center">
+            <p class="text-gray-500 text-lg">暂无订单</p>
+          </div>
+        </template>
+
+        <template x-for="order in orders.slice().reverse()" :key="order.id">
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="font-bold text-xl" x-text="order.tableNumber"></h3>
+                <p class="text-gray-500" x-text="order.time"></p>
+              </div>
+              <span class="bg-yellow-100 text-yellow-800 px-4 py-1 rounded-full font-semibold" x-text="order.status"></span>
+            </div>
+
+            <div class="space-y-4 mb-4">
+              <template x-for="item in order.items">
+                <div class="border-l-4 border-orange-500 pl-4 py-3">
+                  <div class="flex justify-between mb-2">
+                    <span class="font-bold text-lg">
+                      <span x-text="item.image"></span>
+                      <span x-text="item.name"></span> × <span x-text="item.quantity"></span>
+                    </span>
+                    <span class="font-bold text-orange-600">¥<span x-text="item.price * item.quantity"></span></span>
+                  </div>
+                  <div class="text-sm text-gray-600">
+                    <div><strong>用料：</strong> <span x-text="item.ingredients"></span></div>
+                    <div class="mt-2"><strong>做法：</strong></div>
+                    <pre class="text-gray-700 bg-gray-50 p-3 rounded mt-1 text-sm whitespace-pre-wrap" x-text="item.recipe"></pre>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="border-t-2 pt-4 flex justify-between items-center">
+              <span class="font-bold text-lg">总计：</span>
+              <span class="text-2xl font-bold text-orange-600">¥<span x-text="order.total"></span></span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+  </main>
+
+  <!-- 查看菜谱模态框 -->
+  <template x-if="viewingRecipe">
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click="viewingRecipe=null">
+      <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" @click.stop>
+        <div class="p-8">
+          <div class="flex items-start justify-between mb-6">
+            <div class="flex items-center gap-4">
+              <div class="text-6xl" x-text="viewingRecipe.image"></div>
+              <div>
+                <h2 class="text-3xl font-bold text-gray-800" x-text="viewingRecipe.name"></h2>
+                <p class="text-orange-600 font-bold text-2xl">¥<span x-text="viewingRecipe.price"></span></p>
+              </div>
+            </div>
+            <button @click="viewingRecipe=null" class="text-gray-500 hover:text-gray-700">
+              <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+          </div>
+
+          <div class="space-y-6">
+            <div>
+              <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="chef-hat" class="w-5 h-5"></i> 用料</h3>
+              <p class="bg-orange-50 p-4 rounded-lg whitespace-pre-wrap text-gray-700" x-text="viewingRecipe.ingredients"></p>
+            </div>
+            <div>
+              <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="utensils-crossed" class="w-5 h-5"></i> 做法</h3>
+              <p class="bg-orange-50 p-4 rounded-lg whitespace-pre-wrap leading-relaxed text-gray-700" x-text="viewingRecipe.recipe"></p>
+            </div>
+          </div>
+
+          <button @click="viewingRecipe=null" class="w-full mt-8 bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-lg">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- 添加/编辑菜品表单 -->
+  <template x-if="showAddForm || editingDish">
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8">
+        <h2 class="text-2xl font-bold mb-6" x-text="editingDish ? '编辑菜品' : '添加新菜品'"></h2>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block font-semibold mb-2">菜名</label>
+            <input type="text" x-model="form.name" class="w-full p-3 border-2 rounded-lg focus:border-orange-500 outline-none" placeholder="例如：宫保鸡丁">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold mb-2">价格</label>
+              <input type="number" x-model.number="form.price" class="w-full p-3 border-2 rounded-lg focus:border-orange-500 outline-none">
+            </div>
+            <div>
+              <label class="block font-semibold mb-2">分类</label>
+              <select x-model="form.category" class="w-full p-3 border-2 rounded-lg focus:border-orange-500 outline-none">
+                <option>热菜</option><option>凉菜</option><option>主食</option><option>汤类</option><option>饮品</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold mb-2">图标 Emoji</label>
+            <input type="text" x-model="form.image" class="w-full p-3 border-2 rounded-lg text-3xl focus:border-orange-500 outline-none" placeholder="鸡">
+          </div>
+          <div>
+            <label class="block font-semibold mb-2">用料（一行一个或用逗号分隔）</label>
+            <textarea x-model="form.ingredients" rows="3" class="w-full p-3 border-2 rounded-lg focus:border-orange-500 outline-none"></textarea>
+          </div>
+          <div>
+            <label class="block font-semibold mb-2">详细做法（每一步一行）</label>
+            <textarea x-model="form.recipe" rows="8" class="w-full p-3 border-2 rounded-lg focus:border-orange-500 outline-none"></textarea>
+          </div>
+        </div>
+
+        <div class="flex gap-4 mt-8">
+          <button @click="saveDish()" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg flex items-center justify-center">
+            <i data-lucide="save" class="w-5 h-5 mr-2"></i> 保存
+          </button>
+          <button @click="showAddForm=false; editingDish=null" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-lg flex items-center justify-center">
+            <i data-lucide="x" class="w-5 h-5 mr-2"></i> 取消
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Alpine.js 主逻辑 -->
+  <script>
+    lucide.createIcons();
+
+    function menuSystem() {
+      return {
+        // 数据
+        menuItems: [],
+        cart: [],
+        orders: [],
+        activeTab: 'menu',
+        tableNumber: '',
+        viewingRecipe: null,
+        showAddForm: false,
+        editingDish: null,
+        form: {},
+
+        // 默认菜单
+        defaultMenu: [
+          { id: 1, name: '宫保鸡丁', price: 38, category: '热菜', image: '鸡', ingredients: '鸡胸肉300g、花生米50g、干辣椒10个、花椒1勺、葱姜蒜适量', recipe: `1. 鸡胸肉切丁，加料酒、盐、淀粉腌制15分钟
+2. 热油爆香花椒、干辣椒
+3. 下鸡丁炒至变色
+4. 加入葱姜蒜、花生米翻炒
+5. 调入酱油、醋、糖、水淀粉勾芡
+6. 大火收汁即可` },
+          { id: 2, name: '麻婆豆腐', price: 28, category: '热菜', image: '豆', ingredients: '嫩豆腐400g、猪肉末100g、豆瓣酱2勺、花椒粉1勺、葱姜蒜适量', recipe: `1. 豆腐切块，焯水备用
+2. 热油炒香肉末
+3. 加入豆瓣酱炒出红油
+4. 下葱姜蒜爆香
+5. 加水烧开，放入豆腐
+6. 调味后撒花椒粉、葱花即可` },
+          { id: 3, name: '西红柿炒蛋', price: 25, category: '热菜', image: '西', ingredients: '西红柿3个、鸡蛋4个、葱花适量、盐、糖', recipe: `1. 西红柿切块，鸡蛋打散加少许盐
+2. 热油炒鸡蛋至成型盛出
+3. 另起锅炒西红柿至出汁
+4. 加入炒好的鸡蛋
+5. 加盐、糖调味
+6. 撒葱花出锅` },
+        ],
+
+        init() {
+          this.loadData();
+        },
+
+        // 本地存储
+        async loadData() {
+          const menu = localStorage.getItem('menu-items');
+          this.menuItems = menu ? JSON.parse(menu) : this.defaultMenu;
+          if (!menu) localStorage.setItem('menu-items', JSON.stringify(this.defaultMenu));
+
+          const orders = localStorage.getItem('all-orders');
+          this.orders = orders ? JSON.parse(orders) : [];
+        },
+
+        saveMenu() {
+          localStorage.setItem('menu-items', JSON.stringify(this.menuItems));
+        },
+
+        saveOrders() {
+          localStorage.setItem('all-orders', JSON.stringify(this.orders));
+        },
+
+        // 计算属性
+        get categories() {
+          return [...new Set(this.menuItems.map(i => i.category))];
+        },
+
+        get totalPrice() {
+          return this.cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        },
+
+        emptyDish() {
+          return { name: '', price: 0, category: '热菜', image: '菜', ingredients: '', recipe: '' };
+        },
+
+        // 操作
+        addToCart(item) {
+          const exist = this.cart.find(i => i.id === item.id);
+          if (exist) exist.quantity++;
+          else this.cart.push({ ...item, quantity: 1 });
+          this.cart = [...this.cart]; // 触发更新
+        },
+
+        changeQty(id, delta) {
+          this.cart = this.cart.map(i => {
+            if (i.id === id) i.quantity = Math.max(1, i.quantity + delta);
+            return i;
+          }).filter(i => i.quantity > 0);
+        },
+
+        removeFromCart(id) {
+          this.cart = this.cart.filter(i => i.id !== id);
+        },
+
+        viewRecipe(item) { this.viewingRecipe = item; },
+
+        editDish(item) {
+          this.editingDish = item;
+          this.form = { ...item };
+          this.showAddForm = true;
+        },
+
+        deleteDish(id) {
+          if (confirm('确定要删除这道菜吗？')) {
+            this.menuItems = this.menuItems.filter(i => i.id !== id);
+            this.saveMenu();
+          }
+        },
+
+        saveDish() {
+          if (!this.form.name || !this.form.price) return alert('请填写完整信息');
+          if (this.editingDish) {
+            // 编辑
+            this.menuItems = this.menuItems.map(i => i.id === this.editingDish.id ? { ...this.form, id: this.editingDish.id } : i);
+          } else {
+            // 新增
+            this.menuItems.push({ ...this.form, id: Date.now() });
+          }
+          this.saveMenu();
+          this.showAddForm = false;
+          this.editingDish = null;
+        },
+
+        submitOrder() {
+          if (this.cart.length === 0) return alert('购物车为空！');
+          if (!this.tableNumber) return alert('请输入桌号或备注！');
+
+          const newOrder = {
+            id: Date.now(),
+            tableNumber: this.tableNumber,
+            items: [...this.cart],
+            total: this.totalPrice,
+            time: new Date().toLocaleString('zh-CN'),
+            status: '待制作'
+          };
+          this.orders.push(newOrder);
+          this.saveOrders();
+
+          alert('下单成功！');
+          this.cart = [];
+          this.tableNumber = '';
+          this.activeTab = 'orders';
+        }
+      };
+    }
+  </script>
+</body>
+</html>
